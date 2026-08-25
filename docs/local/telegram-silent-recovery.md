@@ -54,7 +54,21 @@ see the `project_mcp_watchdog` memory):
      | grep -qE "channel-mcp-reconnect: completed|plugin recovered"; do sleep 10; done
    ```
    (Run it with `run_in_background`.) The dashboard's own watchdog does a soft `/mcp` reconnect;
-   this line is the signal that it worked.
+   this line is the signal that IT worked.
+
+   **The log line is necessary but NOT sufficient — it is not the same event as "my reply tool is
+   usable again".** Measured 2026-08-25: the dashboard logged `channel-mcp-reconnect: completed`
+   six seconds after the drop (14:44:34 → 14:44:40), but the tool did not reappear in this session's
+   registry until roughly ten minutes later. The dashboard reconnects the plugin; the session picks
+   it up on its own schedule. So treat the log line as "the fix has started", then confirm with
+   `ToolSearch("select:mcp__plugin_telegram_telegram__reply")` before declaring recovery, and do not
+   report the outage as over on the strength of the log alone.
+
+   **Calibrate the effort to the outage.** Six drops on 2026-08-25, every one of them recovered by
+   the watchdog in about six seconds on the dashboard side. This is background noise, not an
+   incident. Park the text and write the memory (steps 1-2) because they are cheap and the loss is
+   permanent; but do not open an investigation, do not touch the plugin, and do not tell Zoltán the
+   bot is broken — by the time you finished typing that, it is usually back.
 4. **When it returns:** re-load the tool with ToolSearch, send the parked text, then delete the
    file and write a closing memory that supersedes the `hot` one. An un-retracted "pending send"
    memory makes a later session send the same answer twice.
