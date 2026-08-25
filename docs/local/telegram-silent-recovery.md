@@ -33,6 +33,36 @@ Otherwise: ask him to restart his Telegram client, and re-check.
 
 ---
 
+## STEP 0b — the reply tool vanished MID-TURN, while I had a finished answer
+
+Different problem from the rest of this runbook: nothing is silent from Zoltán's side, the MCP
+just dropped out of MY toolset while I was working. The danger is not the outage, it is **losing
+the answer** — the session may be summarised or restarted before the tool returns.
+
+Do these four, in this order, and do NOT hand-fix the plugin (the dashboard watchdog restarts it;
+see the `project_mcp_watchdog` memory):
+
+1. **Park the finished text in a file** — `tmp/pending-telegram-<message_id>.txt`. Write the whole
+   reply, not a summary of it.
+2. **Write a `hot` memory** naming the file, the message it answers, and the SUBSTANCE of the
+   answer in two or three sentences. A fresh session must be able to reconstruct it even if the
+   file is gone.
+3. **Arm a background waiter on the dashboard log**, so you are notified instead of polling:
+   ```bash
+   MARK=$(wc -l < store/dashboard.log)
+   until tail -n +$((MARK+1)) store/dashboard.log \
+     | grep -qE "channel-mcp-reconnect: completed|plugin recovered"; do sleep 10; done
+   ```
+   (Run it with `run_in_background`.) The dashboard's own watchdog does a soft `/mcp` reconnect;
+   this line is the signal that it worked.
+4. **When it returns:** re-load the tool with ToolSearch, send the parked text, then delete the
+   file and write a closing memory that supersedes the `hot` one. An un-retracted "pending send"
+   memory makes a later session send the same answer twice.
+
+2026-08-25: this exact sequence saved a PR-closing explanation that had taken a code audit to write.
+
+---
+
 ## 60-second triage
 
 Run from `~/marveen`:
