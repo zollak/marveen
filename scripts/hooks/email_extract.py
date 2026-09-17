@@ -62,7 +62,37 @@ def collect_bash_body(cmd: str):
     return ("\n".join(parts), None)
 
 
+# MCPBURKOLO908 (2026-09-08, measured on a live draft): this install's gmail
+# MCP nests the WHOLE payload under a single "input" key --
+# {"input": {"to": [...], "subject": "...", "text": "..."}} -- so the flat field
+# lookup below found nothing, collect_mcp_body returned "", and every
+# draft_create/draft_update/draft_send hit the gate's fail-closed branch ("nem
+# talalt vizsgalhato szoveget"). The matcher fix earlier the same day put these
+# tools INSIDE the gate; this makes their payload readable once there. Same
+# blind spot on the recipient side: an unwrapped envelope yields no to/cc, and
+# the approval gate's anchor would pin a letter with an EMPTY recipient set.
+# Unwrap is conservative: only when the flat shape carries no letter fields of
+# its own, so an already-flat payload is untouched.
+_ENVELOPE_KEYS = ("input", "arguments", "params")
+_LETTER_KEYS = ("to", "cc", "bcc", "body", "text", "html", "htmlBody",
+                "message", "subject", "content")
+
+
+def unwrap_mcp_input(tool_input: dict) -> dict:
+    """Return the dict that actually holds the letter fields."""
+    if not isinstance(tool_input, dict):
+        return {}
+    if any(tool_input.get(k) for k in _LETTER_KEYS):
+        return tool_input
+    for key in _ENVELOPE_KEYS:
+        inner = tool_input.get(key)
+        if isinstance(inner, dict):
+            return inner
+    return tool_input
+
+
 def collect_mcp_body(tool_input: dict):
+    tool_input = unwrap_mcp_input(tool_input)
     fields = ("body", "text", "html", "htmlBody", "message", "subject", "content")
     got = [str(tool_input[f]) for f in fields if tool_input.get(f)]
     return "\n".join(got)
@@ -95,6 +125,8 @@ def collect_mcp_recipients(tool_input: dict):
     """Return (to, cc, bcc, unreadable_reason). Values are kept RAW (no
     splitting, no lowercasing): the hash anchor needs exact bytes, not address
     semantics. bcc: see collect_bash_recipients (EMAILBCCHORGONY903)."""
+    tool_input = unwrap_mcp_input(tool_input)
+
     def norm(v):
         if v is None or v == "":
             return []

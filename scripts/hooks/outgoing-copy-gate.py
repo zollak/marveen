@@ -897,8 +897,17 @@ MANAGE_EMAIL_OUTBOUND_OPS = {"send", "reply", "replyall", "forward"}
 # Dedicated (non-multiplexed) outbound tools: the draft tools and the Gmail
 # connector's three separate send-shaped tools. Kept in step with the matcher
 # this hook is registered under in settings.json.
+# COPYGATEDRAFT908: the noun-first spellings above (`create_draft`,
+# `update_draft`) miss THIS install's tool names entirely -- the gmail MCP here
+# exposes `draft_create`, `draft_update` and `draft_send`. Measured 2026-09-08:
+# an em dash in a `mcp__gmail__draft_create` body exited 0 while the same text
+# was blocked on `send_email`, so the gate's three checks were all bypassable by
+# drafting instead of sending -- and drafting is the DEFAULT workflow here.
+# `draft_send` matters most: it is a real send. `draft_list`/`draft_delete`
+# carry no outgoing text of ours and stay unmatched on purpose.
 EMAIL_TOOL_RE = re.compile(
     r"(send_email|create_draft|draft_email|update_draft"
+    r"|draft_create|draft_update|draft_send"
     r"|(^|__)gmail__(reply|reply_all|send_message|forward)$)",
     re.I,
 )
