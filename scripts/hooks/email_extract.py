@@ -152,7 +152,35 @@ def _payload_text(data: str, raw: str):
     return ("\n".join(got), None)
 
 
+# MCPBURKOLO908 (local, re-applied per rebase; 2026-09-08, measured on a live
+# draft): this install's gmail MCP nests the WHOLE payload under a single "input"
+# key -- {"input": {"to": [...], "subject": "...", "text": "..."}} -- so the flat
+# field lookup found nothing, collect_mcp_body returned "", and every
+# draft_create/draft_update/draft_send hit the gate's fail-closed branch. Same
+# blind spot on the recipient side (an unwrapped envelope yields no to/cc, so the
+# approval anchor would pin an EMPTY recipient set). Unwrap is conservative: only
+# when the flat shape carries no letter fields of its own, so an already-flat
+# payload is untouched.
+_ENVELOPE_KEYS = ("input", "arguments", "params")
+_LETTER_KEYS = ("to", "cc", "bcc", "body", "text", "html", "htmlBody",
+                "message", "subject", "content")
+
+
+def unwrap_mcp_input(tool_input: dict) -> dict:
+    """Return the dict that actually holds the letter fields."""
+    if not isinstance(tool_input, dict):
+        return {}
+    if any(tool_input.get(k) for k in _LETTER_KEYS):
+        return tool_input
+    for key in _ENVELOPE_KEYS:
+        inner = tool_input.get(key)
+        if isinstance(inner, dict):
+            return inner
+    return tool_input
+
+
 def collect_mcp_body(tool_input: dict, tool_name: str = ""):
+    tool_input = unwrap_mcp_input(tool_input)
     # By NAME when the caller knows it (MS365MAIL1024 round 2): a non-Graph tool
     # with an object body keeps the flat read, and a Graph tool without a Graph
     # shape is still read the Graph way. The shape remains the fallback for the
@@ -191,6 +219,8 @@ def collect_mcp_recipients(tool_input: dict):
     """Return (to, cc, bcc, unreadable_reason). Values are kept RAW (no
     splitting, no lowercasing): the hash anchor needs exact bytes, not address
     semantics. bcc: see collect_bash_recipients (EMAILBCCHORGONY903)."""
+    tool_input = unwrap_mcp_input(tool_input)
+
     def norm(v):
         if v is None or v == "":
             return []

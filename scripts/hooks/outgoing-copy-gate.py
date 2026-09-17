@@ -1927,6 +1927,10 @@ MANAGE_EMAIL_OUTBOUND_OPS = {"send", "reply", "replyall", "forward"}
 # send out of the audit. EMAIL_TOOL_RE stays for importers only.
 EMAIL_TOOL_RE = re.compile(
     r"(send_email|create_draft|draft_email|update_draft"
+    # COPYGATEDRAFT908 (local, re-applied per rebase): this install's gmail MCP
+    # exposes verb-second draft_create/draft_update/draft_send (draft_send is a
+    # real send); upstream matches only the noun-first create_draft/update_draft.
+    r"|draft_create|draft_update|draft_send"
     r"|gmail__(reply|reply_all|send_message|forward)$)",
     re.I,
 )
