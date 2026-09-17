@@ -27,6 +27,7 @@
     "PreToolUse": [
       { "matcher": "Bash", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/outgoing-copy-gate.py\"", "timeout": 15 } ] },
       { "matcher": ".*send_email.*", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/outgoing-copy-gate.py\"", "timeout": 15 } ] },
+      { "matcher": ".*draft_(create|update|send).*", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/outgoing-copy-gate.py\"", "timeout": 15 } ] },
       { "matcher": ".*manage_email.*", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/outgoing-copy-gate.py\"", "timeout": 15 } ] },
       { "matcher": ".*[Gg]mail.*__.*", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/outgoing-copy-gate.py\"", "timeout": 15 } ] },
       { "matcher": ".*draft_email.*", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/hooks/outgoing-copy-gate.py\"", "timeout": 15 } ] },
