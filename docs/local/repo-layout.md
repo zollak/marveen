@@ -76,14 +76,32 @@ látszik, mikor és mi mellé készült.
 | `nas/findb/` | findb elemzések, exportok | |
 | `nas/upstream/` | upstream-audit anyagok (szotasz-cruft) | |
 | `nas/backup/` | titkot NEM tartalmazó mentések, dátum szerint | |
+| `nas/marveen-scripts/` | **saját segédszkriptek, külön git repóval** (2026-09-22 óta) | |
 
-Ide nem való script, kód és átmeneti fájl. Azok `scripts/local/` és `tmp/` alá mennek.
+Ide nem való átmeneti fájl (az `tmp/` alá megy) és titkot tartalmazó fájl (az `store/` alá).
+A szkriptekre 2026-09-22 óta kivétel van: Zoltán kérésére (TG 2095) a saját segédszkriptjeim
+a `nas/marveen-scripts/` alá kerülnek, témánkénti alkönyvtárba, saját git repóval, ami a
+Giteára megy fel `marveen-scripts` néven. A `.git/info/exclude` a teljes `nas/` ágat kizárja
+a fork repójából, tehát a két repó nem lát egymásba.
 
 ## 7. Lokális scriptek leltára
 
 | Script | Indítja | Szerepe |
 |---|---|---|
 | `scripts/local/ensure-agents.sh` | `~/Library/LaunchAgents/com.marveen.agents.plist` (RunAtLoad) | reboot után elindítja a sub-ágenseket a `store/agents-desired.json` alapján |
+
+Ez az egyetlen szkript, ami 2026-09-22 után is a forkban maradt, és szándékosan: bootkor fut,
+a `nas/` ág viszont a Synology Drive alatt él, ahol a fájl a sync közben cserélődhet. Boot-kritikus
+szkriptet nem futtatunk szinkronizált könyvtárból.
+
+### Átköltözött szkriptek (2026-09-22)
+
+| Új hely | Régi hely | Hivatkozó, amit át kellett írni |
+|---|---|---|
+| `nas/marveen-scripts/obs/obs-ctl.py` | `scripts/local/obs-ctl.py` | `~/.claude/skills/obs-eloadas-rogzites/SKILL.md`, és a másik két obs szkript |
+| `nas/marveen-scripts/obs/obs-status.sh` | `scripts/local/obs-status.sh` | ugyanaz a skill |
+| `nas/marveen-scripts/obs/obs-drain-to-nas.sh` | `scripts/local/obs-drain-to-nas.sh` | ugyanaz a skill |
+| `nas/marveen-scripts/moodle/moodle-cal-watch.py` | `scripts/local/moodle-cal-watch.py` | nincs élő hivatkozó |
 
 A többi `com.marveen.*` LaunchAgent vagy upstream scriptre mutat (`scripts/channels.sh`),
 vagy az admin ágens homelab-config fájára; azok nem ehhez a réteghez tartoznak.
