@@ -69,9 +69,25 @@ see the `project_mcp_watchdog` memory):
    incident. Park the text and write the memory (steps 1-2) because they are cheap and the loss is
    permanent; but do not open an investigation, do not touch the plugin, and do not tell Zoltán the
    bot is broken — by the time you finished typing that, it is usually back.
-4. **When it returns:** re-load the tool with ToolSearch, send the parked text, then delete the
-   file and write a closing memory that supersedes the `hot` one. An un-retracted "pending send"
-   memory makes a later session send the same answer twice.
+4. **When it returns:** re-load the tool with ToolSearch, then **re-measure before you send**,
+   then send, then delete the file and write a closing memory that supersedes the `hot` one. An
+   un-retracted "pending send" memory makes a later session send the same answer twice.
+
+   **Re-measure first — a parked answer goes stale in the dark (2026-09-25, measured).** The text
+   is a snapshot of the moment the tool died; the machine kept running. That night the parked reply
+   named the missing `channel-keepalive-probe` unit as the root cause of a ~56-minute channels
+   restart loop. By the time it could be sent the claim was wrong: the probe went in at 00:09 and
+   the loop continued at 00:15 and 00:42, with a different signature (`never-started ... within
+   600s/1200s` instead of `died-after-up ... dead for 180s`), then stopped on its own. Sending the
+   parked text unchanged would have reported a solved cause that was never proven. So before
+   sending, re-run the measurement the text asserts, and rewrite the claim to what holds now —
+   including "root cause not proven", which is a complete answer.
+
+   **Then check the clock, not just the tool.** "As soon as the tool is back" is not the same as
+   "now". A parked reply that asks Zoltán for decisions and blocks nobody is not worth a phone
+   notification at 02:00; park it to the 07:30 morning brief instead and say so in the `hot`
+   memory, so the next session does not read the delay as a dropped ball. Genuinely urgent, or
+   something he is actively waiting on, still goes out immediately.
 
 2026-08-25: this exact sequence saved a PR-closing explanation that had taken a code audit to write.
 
@@ -116,7 +132,7 @@ Confirm:
 ```bash
 python3 -c "import json,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); [print(s.get('scope'), s.get('projectPath','(user-global)')) for s in d['plugins'].get('telegram@claude-plugins-official',[])]"
 ```
-If you see only a `project <某agent-path>` line and no `user (user-global)` line → this is it.
+If you see only a `project <some-agent-path>` line and no `user (user-global)` line → this is it.
 
 **Fix (one command — also un-breaks every agent at once, because it's user-global):**
 ```bash
@@ -152,6 +168,26 @@ bash scripts/start.sh          # one clean dashboard + channels
 `store/.channel-keepalive` is >15 min old. Normally the dashboard channel-monitor or
 `channel-watchdog.sh` respawns the pane. If it doesn't, respawn manually — see
 `scripts/channel-watchdog.sh` (the `respawn-pane -k` command).
+
+**The idle-path producer.** On a quiet night nothing refreshes that file except
+`com.marveen.channel-keepalive-probe` (launchd, `StartInterval 180`, installed by
+`scripts/install-channel-keepalive-probe.sh --load`). Without it the file ages past
+`KEEPALIVE_LIVENESS_TRUST_CEILING_MS` (45 min) and the monitor hard-restarts the session as
+"possible deafness" **even with a live poller** — the dashboard log says so in as many words
+("despite a live poller"). Check the unit is loaded before blaming the plugin. The probe is
+fail-closed: it only touches the file when it can prove a poller is running, so it cannot mask a
+real outage. Note it logs ONLY on failure — **silence in `store/channel-keepalive-probe.log` is
+the healthy state**; confirm liveness from the mtime of `store/.channel-keepalive`, not from the log.
+
+**Do NOT call the missing probe the root cause of a respawn loop (2026-09-25, measured).** That
+night the session respawned nine times between 17:30 and 00:42 and I wrote up the missing unit as
+the cause. It wasn't, or wasn't only: the probe went in at 00:09 and the loop ran twice more, at
+00:15 and 00:42, with a different signature — `never-started: telegram plugin never started within
+600s`, then `1200s` (an escalating budget), instead of `died-after-up ... dead for 180s`. Then it
+stopped on its own, and 86 minutes of quiet is not proof of anything. Installing a fix and the
+symptom stopping are two separate events: re-measure the symptom after the fix before naming a
+cause, and if the measurement isn't there, write "not proven" — that is a complete finding.
+Full record: memory 955, card b6646dba.
 
 ### D. Telegram API itself
 
