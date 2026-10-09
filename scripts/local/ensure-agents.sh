@@ -51,7 +51,7 @@ fi
 [ -z "$AGENTS" ] && { echo "$(date '+%F %T') no agents to start" >> "$LOG"; exit 0; }
 echo "$(date '+%F %T') boot fleet: $AGENTS" >> "$LOG"
 for a in $AGENTS; do
-  if ! "$TMUX" has-session -t "agent-$a" 2>/dev/null; then
+  if ! "$TMUX" has-session -t "=agent-$a:" 2>/dev/null; then
     if curl -s --max-time 25 -X POST "http://localhost:3420/api/agents/$a/start" -H "Authorization: Bearer $TOKEN" >/dev/null 2>&1; then
       echo "$(date '+%F %T') boot-started missing agent-$a" >> "$LOG"
     else
