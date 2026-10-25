@@ -205,15 +205,24 @@ _ADDR = re.compile(r"[^\s<>,;:\"'()\[\]]+@[^\s<>,;:\"'()\[\]]+")
 
 
 def owner_cc_address() -> str:
-    """MAIL_OWNER_CC from the install .env ONLY, lowercased, or '' when the
-    check is off. Never from the process environment: an empty value that ends
-    up in the launch environment would switch the gate off with no trace (the
-    mail senders read their recipient settings from .env only for the same
-    reason). The .env is the one next to the store this gate uses, i.e. the
-    install root in production, and the test's own root when a test points
+    """MAIL_OWNER_CC, lowercased, or '' when the check is off: the dashboard's
+    Security tab (store/config-overrides.json) first, then the install .env,
+    the same order as the settings store. Never from the process environment:
+    an empty value that ends up in the launch environment would switch the gate
+    off with no trace (the mail senders read their recipient settings from .env
+    only for the same reason), and a sub-agent cannot write the overrides file.
+    Both files are the ones next to the store this gate uses, i.e. the install
+    root in production, and the test's own root when a test points
     EMAIL_APPROVAL_GATE_STORE at a temporary store."""
+    root = os.path.dirname(os.path.abspath(STORE_DIR))
     try:
-        with open(os.path.join(os.path.dirname(STORE_DIR), ".env"), encoding="utf-8") as fh:
+        reader = _security_settings()
+    except Exception:  # noqa: BLE001 -- no reader: .env only, as before the tab existed
+        reader = None
+    if reader is not None:
+        return reader.security_setting("MAIL_OWNER_CC", "", root=root).lower()
+    try:
+        with open(os.path.join(root, ".env"), encoding="utf-8") as fh:
             for line in fh:
                 if line.startswith("MAIL_OWNER_CC="):
                     return line.split("=", 1)[1].strip().strip("'\"").lower()
@@ -241,6 +250,17 @@ def _maybe_ms365_tool(tool: str) -> bool:
     (HOOKDEPLOAD1008)."""
     raw = str(tool or "").lower()
     return "-" in raw.rsplit("__", 1)[-1] and raw.replace("-", "_").endswith(_MS365_TOOL_SUFFIXES)
+
+
+def _security_settings():
+    """scripts/hooks/security_settings.py, loaded by path (this gate is run as a
+    script, so its directory is not guaranteed to be importable)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "security_settings", os.path.join(_HERE, "security_settings.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def owner_cc_missing(tool_input: dict, owner: str, tool: str = "", draft: bool = False) -> bool:

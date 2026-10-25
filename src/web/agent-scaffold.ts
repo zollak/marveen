@@ -1251,11 +1251,20 @@ export function bashEgressDeny(ytIngestOnly: boolean = ytDlpIngestOnly()): strin
 // read by bash-egress-parser.mjs too) as {"bash_external": "open"}; anything else, a missing file or a
 // parse error keeps the full list. Only the curl and wget rules are dropped: nc / ncat / telnet stay
 // denied. BASH_EGRESS_DENY itself is unchanged, so the template and the tests keep pinning it.
+//
+// The Security tab's SECURITY_BASH_EXTERNAL (backport of PR #2277) opens the same two verbs: the switch
+// is on when EITHER the carry file or the setting says so, and bash-egress-parser.mjs reads both too.
 export function bashExternalOpen(path: string = join(STORE_DIR, 'egress-vendor-hosts.json')): boolean {
+  if (bashExternalSettingOn()) return true
   try {
     const raw = JSON.parse(readFileSync(path, 'utf-8')) as { bash_external?: unknown }
     return raw?.bash_external === 'open'
   } catch { return false }
+}
+
+// SECURITY_BASH_EXTERNAL (default off). Unreadable reads as OFF.
+export function bashExternalSettingOn(): boolean {
+  try { return String(getEffectiveSettingValue('SECURITY_BASH_EXTERNAL')) === '1' } catch { return false }
 }
 
 // The fleet-wide deny FLOOR: applied to EVERY profile, exactly like
@@ -1801,6 +1810,7 @@ export const DESTRUCTIVE_GATE_MATCHER = 'Bash|Read|Edit|Write|NotebookEdit'
 // can call it; omitted, the agent's own profile is resolved from its config.
 export function agentGetsDestructiveGate(name: string, profile?: ProfileTemplate): boolean {
   if (name === MAIN_AGENT_ID) return false
+  if (destructiveGateForAll()) return true
   const p = profile ?? loadProfileTemplate(resolveAgentSecurityProfile(name))
   return profileWantsDestructiveGate(p)
 }
@@ -1902,6 +1912,13 @@ export function ensureWebSearchEnvelope(name: string): boolean {
   if (!injectWebSearchEnvelope(settings)) return false
   atomicWriteFileSync(settingsPath, JSON.stringify(settings, null, 2))
   return true
+}
+
+// The Security tab's SECURITY_DESTRUCTIVE_GATE (default off): on wires the gate for every sub-agent,
+// whatever its profile says. Off leaves the profile in charge, and like the profile flag it never
+// tears down a hook an agent already has. Unreadable reads as OFF, i.e. the profile decides.
+export function destructiveGateForAll(): boolean {
+  try { return String(getEffectiveSettingValue('SECURITY_DESTRUCTIVE_GATE')) === '1' } catch { return false }
 }
 
 // CHILDCLAUDEPOLLER1010. Which agents get the child-claude channel guard: every
@@ -2017,8 +2034,19 @@ export function injectDestructiveGate(existing: Record<string, unknown>): void {
 // the hook through the install's own settings (see docs/credential-gate.md).
 export function agentGetsCredentialGate(name: string, profile?: ProfileTemplate): boolean {
   if (name === MAIN_AGENT_ID) return false
+  if (credentialGateFleetMode() !== 'off') return true
   const p = profile ?? loadProfileTemplate(resolveAgentSecurityProfile(name))
   return profileWantsCredentialGate(p)
+}
+
+// The Security tab's SECURITY_CREDENTIAL_GATE: 'warn' or 'block' wires the gate for every sub-agent
+// (the hook reads the mode itself, credential_lib.load_config); 'off' (default) leaves the profile in
+// charge. Unreadable or unknown reads as 'off'.
+export function credentialGateFleetMode(): 'off' | 'warn' | 'block' {
+  try {
+    const v = String(getEffectiveSettingValue('SECURITY_CREDENTIAL_GATE')).trim()
+    return v === 'warn' || v === 'block' ? v : 'off'
+  } catch { return 'off' }
 }
 
 // Idempotently wire the credential gate, on the SAME matcher as the email-send
