@@ -167,6 +167,13 @@ export function parseVendorDomains(raw) {
 export function loadVendorDomains(path = VENDOR_HOSTS_PATH) {
   try { return parseVendorDomains(JSON.parse(readFileSync(path, 'utf-8'))) } catch { return new Set() }
 }
+// LOCAL CARRY (zollak fork, 2026-10-25, owner decision TG 3074): {"bash_external": "open"} in the same
+// file turns this gate off for external hosts. Exact string only; a missing file, a parse error or any
+// other value keeps today's behaviour (deny). The scaffold reads the same key to drop the curl/wget
+// permission rules, so the two layers move together.
+export function loadExternalOpen(path = VENDOR_HOSTS_PATH) {
+  try { return JSON.parse(readFileSync(path, 'utf-8'))?.bash_external === 'open' } catch { return false }
+}
 export function hostInDomains(host, domains) {
   for (const d of domains) if (host === d || host.endsWith(`.${d}`)) return true
   return false
@@ -1939,6 +1946,7 @@ if (isInvokedDirectly()) {
   let payload
   try { payload = JSON.parse(readFileSync(0, 'utf-8')) } catch { process.exit(0) }
   if (payload?.tool_name !== 'Bash') process.exit(0)
+  if (loadExternalOpen()) process.exit(0)
   let r
   setHookCwd(payload?.cwd)
   // EGRESSMEASURE1025: the measure-only shape for a measure host passes, logged; anything else is

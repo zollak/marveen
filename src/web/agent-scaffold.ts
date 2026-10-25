@@ -1246,6 +1246,18 @@ export function bashEgressDeny(ytIngestOnly: boolean = ytDlpIngestOnly()): strin
   return ytIngestOnly ? [...BASH_EGRESS_DENY, ...YT_DLP_EGRESS_DENY] : [...BASH_EGRESS_DENY]
 }
 
+// LOCAL CARRY (zollak fork, 2026-10-25, owner decision TG 3074): a per-install switch that lets the
+// fleet's curl and wget reach external hosts. It lives in store/egress-vendor-hosts.json (untracked,
+// read by bash-egress-parser.mjs too) as {"bash_external": "open"}; anything else, a missing file or a
+// parse error keeps the full list. Only the curl and wget rules are dropped: nc / ncat / telnet stay
+// denied. BASH_EGRESS_DENY itself is unchanged, so the template and the tests keep pinning it.
+export function bashExternalOpen(path: string = join(STORE_DIR, 'egress-vendor-hosts.json')): boolean {
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf-8')) as { bash_external?: unknown }
+    return raw?.bash_external === 'open'
+  } catch { return false }
+}
+
 // The fleet-wide deny FLOOR: applied to EVERY profile, exactly like
 // BASH_EGRESS_DENY above and for the same reason. permissions.deny is rebuilt
 // WHOLESALE from the security profile on every spawn, so a rule that lives only
@@ -1439,7 +1451,10 @@ export function ensureBashEgressDeny(name: string, mainAgentConfigDir: string | 
 // the legacy curl-https / wget name rules on every agent exactly as before; on
 // lets the parser hook judge those two verbs by destination host. An unreadable
 // setting reads as OFF -- the deny rules are the safe direction.
+// LOCAL CARRY: the per-install bash_external switch (bashExternalOpen) also lifts the legacy
+// curl-https / wget name rules; the parser's own carry then lets the external host through.
 export function bashEgressHostAllowEnabled(): boolean {
+  if (bashExternalOpen()) return true
   try { return String(getEffectiveSettingValue('BASH_EGRESS_HOST_ALLOW')) === '1' } catch { return false }
 }
 
